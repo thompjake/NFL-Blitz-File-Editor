@@ -1,0 +1,68 @@
+﻿<Window x:Class="NFL_Blitz_2000_Roster_Manager.GraphicEditor"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+         xmlns:blitzModels="clr-namespace:NFL_Blitz_2000_Roster_Manager.Models"
+        Title="NFL Blitz Graphic Editor" Height="700" Width="600">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition />
+        </Grid.RowDefinitions>
+        <StackPanel Grid.Column="0" Grid.Row="0">
+            <Menu>
+                <MenuItem Header="File">
+                    <MenuItem Header="Open Rom" Click="btnLoadRom_Click"></MenuItem>
+                </MenuItem>
+            </Menu>
+            <TabControl Height="400">
+                <TabItem Header="All Files">
+                    <ListBox  Name="lbGameFiles" SelectionChanged="lbGameFiles_SelectionChanged">
+                    </ListBox>
+                </TabItem>
+                <TabItem Header="Files By Team">
+                    <TreeView Name="teamView" ItemsSource="{Binding BlitzTeams}">
+                        <TreeView.ItemTemplate>
+                            <HierarchicalDataTemplate ItemsSource="{Binding TeamFiles}">
+                                <TextBlock Foreground="Red" Text="{Binding TeamName}" />
+                                <!-- Team template -->
+                                <HierarchicalDataTemplate.ItemTemplate>
+                                            <DataTemplate>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding fileName}" />
+                                            <TextBlock Text=" (" />
+                                            <TextBlock Text="{Binding fileDescription}" />
+                                            <TextBlock Text=")" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                        </HierarchicalDataTemplate.ItemTemplate>
+                                    </HierarchicalDataTemplate>
+                        </TreeView.ItemTemplate>
+                    </TreeView>
+                </TabItem>
+            </TabControl>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition />
+                </Grid.RowDefinitions>
+                <StackPanel HorizontalAlignment="Left" MaxWidth="200px">
+            <Button Margin="0,0,0,5" Name="btnLoadReplacementFile" Click="btnLoadReplacementFile_Click">Replace Selected File</Button>
+            <Button Margin="0,0,0,5" Name="btnExportSelectedFile" Click="btnExportSelectedFile_Click">Export Selected File</Button>
+            <Button Margin="0,0,0,5" Name="btnSetTeamFileFromSelectedAllFile" Click="btnSetTeamFileFromSelectedAllFile_Click">Set Team File From Selected All Files</Button>
+            <Button Margin="0,0,0,5" Name="btnInsertNewFile" Click="btnInsertNewFile_Click">Insert New File</Button>
+            </StackPanel>
+                <GroupBox Header="File Details" Grid.Column="1">
+                    <StackPanel Name="imagePreviewPanel" Visibility="Hidden">
+                        <Label>Image Preview:</Label>
+                        <Image  MouseDown="previewImage_Click" Name="previewImage" MinWidth="200" MaxWidth="300"></Image>
+                    </StackPanel>  
+                </GroupBox>
+            </Grid>
+        </StackPanel>
+    </Grid>
+</Window>
