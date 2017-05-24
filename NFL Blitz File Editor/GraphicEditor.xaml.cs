@@ -135,6 +135,7 @@ FileAccess.ReadWrite))
                     ImageCoder imageCoder = new ImageCoder();
                     imageCoder.Convert(new Bitmap(openDialog.FileName));
                     List<byte> convertedImage = new List<byte>();
+                    //Use Existing Image Header
                     convertedImage.AddRange(Blitz2000Header.CreateNFLBlitz2000Header(imageCoder.Width, imageCoder.Height, imageCoder.HasAlpha, (byte)imageCoder.n64ImageType));
                     convertedImage.AddRange(imageCoder.Data);
                     if (imageCoder.Palette != null)
@@ -258,7 +259,7 @@ FileAccess.ReadWrite))
             {
                 SaveFileDialog openDialog = new SaveFileDialog();
                 if (((BlitzGameFile)lbGameFiles.SelectedItem).fileName.Split('.')[1].Equals("wms"))
-                    {
+                {
                     openDialog.Filter = "PNG (*.png)|*.png|Blitz N64 Graphic (*.wms)|*.wms";
                     openDialog.DefaultExt = "png";
                     openDialog.FileName = ((BlitzGameFile)lbGameFiles.SelectedItem).fileName.Split('.')[0];
@@ -273,7 +274,7 @@ FileAccess.ReadWrite))
                     if (openDialog.FileName.Split('.')[1].Equals("png"))
                     {
                         ImageDecoder decoder = new Helpers.ImageDecoder();
-                        Bitmap image = decoder.ReadFile(decompressedFileBytes);
+                        Bitmap image = decoder.ReadFile(decompressedFileBytes).BlitzImage;
                         if (image != null)
                         {
                             image.Save(openDialog.FileName);
@@ -372,7 +373,6 @@ FileAccess.ReadWrite))
                 for (int z = 0; z <= addBlanks; z++)
                     newGameFile.fileName += "\0";
                 BitsHelper.WriteStringToFileStream(newGameFile.fileName, fs, writeLocation);
-                //BitsHelper.WritBytesToFileStream(System.Text.Encoding.Unicode.GetBytes("\0"), fs, writeLocation + newGameFile.fileName.Length);
 
                 /// Set decompressed file size
                 writeLocation += gameInfo.maxFileNameLenght;
@@ -404,16 +404,21 @@ FileAccess.ReadWrite))
 
         private void previewImage_Click(object sender, RoutedEventArgs e)
         {
-                if (previewImage.Source != null)
-                {
-                    ImagePreview imagePreviewWindow = new ImagePreview((BitmapImage)previewImage.Source);
-                    imagePreviewWindow.Owner = this;
-                    this.IsEnabled = false;
-                    imagePreviewWindow.ShowDialog();
-                    this.IsEnabled = true;
-                }
+            if (previewImage.Source != null)
+            {
+                ImagePreview imagePreviewWindow = new ImagePreview((BitmapImage)previewImage.Source);
+                imagePreviewWindow.Owner = this;
+                this.IsEnabled = false;
+                imagePreviewWindow.ShowDialog();
+                this.IsEnabled = true;
+            }
         }
 
+        /// <summary>
+        /// When the file selection changes this shows the files details
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void lbGameFiles_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (lbGameFiles.SelectedItem != null && ((BlitzGameFile)lbGameFiles.SelectedItem).fileName.Split('.')[1].Equals("wms"))
@@ -423,7 +428,8 @@ FileAccess.ReadWrite))
                 byte[] fileBytes = fullRom.ToList().GetRange((int)((BlitzGameFile)lbGameFiles.SelectedItem).fileOffset, (int)((BlitzGameFile)lbGameFiles.SelectedItem).compressedSize).ToArray();
                 byte[] decompressedFileBytes = new byte[(int)((BlitzGameFile)lbGameFiles.SelectedItem).decompressedSize];
                 MiniLZO.MiniLZO.Decompress(fileBytes, decompressedFileBytes);
-                Bitmap image = decoder.ReadFile(decompressedFileBytes);
+                BlitzGraphic graphic = decoder.ReadFile(decompressedFileBytes);
+                Bitmap image = graphic.BlitzImage;
                 imagePreviewPanel.Visibility = Visibility.Visible;
                 if (image != null)
                 {
@@ -443,8 +449,9 @@ FileAccess.ReadWrite))
                 }
                 else
                 {
-                    imagePreviewPanel.Visibility = Visibility.Hidden;
+                    previewImage.Source = null;
                 }
+                tbImageType.Text = graphic.ImageType;
             }
             else
             {

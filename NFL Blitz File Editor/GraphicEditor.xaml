@@ -58,8 +58,11 @@
             </StackPanel>
                 <GroupBox Header="File Details" Grid.Column="1">
                     <StackPanel Name="imagePreviewPanel" Visibility="Hidden">
-                        <Label>Image Preview:</Label>
+                        <Label FontWeight="Bold">Image Preview:</Label>
                         <Image  MouseDown="previewImage_Click" Name="previewImage" MinWidth="200" MaxWidth="300"></Image>
+                        <Label FontWeight="Bold">Image Type:</Label>
+                        <TextBlock Name="tbImageType">dedef</TextBlock>
+                        <CheckBox Content="Use existing header when replacing image"></CheckBox>
                     </StackPanel>  
                 </GroupBox>
             </Grid>
