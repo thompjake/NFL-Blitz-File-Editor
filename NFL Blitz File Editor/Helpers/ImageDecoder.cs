@@ -24,31 +24,34 @@ namespace NFL_Blitz_2000_Roster_Manager.Helpers
         {
             int imageWidth;
             int imageHeight;
-            if (values[10] != 00)
-            {
-                imageWidth = int.Parse(ByteArrayToString(new byte[2] { values[10], values[11] }), System.Globalization.NumberStyles.HexNumber);
-                imageHeight = int.Parse(ByteArrayToString(new byte[2] { values[14], values[15] }), System.Globalization.NumberStyles.HexNumber);
-            }
-            else
-            {
-                imageWidth = values[11];
-                imageHeight = values[15];
-            }
+            int irx;
+            int iry;
+            //if (values[10] != 00)
+            //{
+            imageWidth = int.Parse(ByteArrayToString(new byte[2] { values[10], values[11] }), System.Globalization.NumberStyles.HexNumber);
+            imageHeight = int.Parse(ByteArrayToString(new byte[2] { values[14], values[15] }), System.Globalization.NumberStyles.HexNumber);
+            irx = int.Parse(ByteArrayToString(new byte[2] { values[19], values[20] }), System.Globalization.NumberStyles.HexNumber);
+            iry = int.Parse(ByteArrayToString(new byte[2] { values[23], values[24] }), System.Globalization.NumberStyles.HexNumber);
+            //}
+            //else
+            //{
+            //    imageWidth = values[11];
+            //    imageHeight = values[15];
+            //}
             switch (values[7])
             {
                 case 00:
-                    return new BlitzGraphic() { ImageType = "CI8", BlitzImage = CI8(values, imageWidth, imageHeight) };
+                    return new BlitzGraphic() { ImageType = "ci8", BlitzImage = CI8(values, imageWidth, imageHeight), Width = imageWidth, Height = imageHeight, IRX = irx, IRY = iry };
                 case 08:
-                    return new BlitzGraphic() { ImageType = "C16", BlitzImage = C16(values, imageWidth, imageHeight) };
+                    return new BlitzGraphic() { ImageType = "c16", BlitzImage = C16(values, imageWidth, imageHeight), Width = imageWidth, Height = imageHeight, IRX = irx, IRY = iry };
                 case 16:
-                    return new BlitzGraphic() { ImageType = "CI4", BlitzImage = CI4(values, imageWidth, imageHeight) };
+                    return new BlitzGraphic() { ImageType = "cI4", BlitzImage = CI4(values, imageWidth, imageHeight), Width = imageWidth, Height = imageHeight, IRX = irx, IRY = iry };
                 case 17:
-                    return new BlitzGraphic() { ImageType = "I4", BlitzImage = I4(values, imageWidth, imageHeight) };
-                case 19: //  c16+i4; c16 image padded to 8 bytes, followed by i4 alpha channel padded to even width.
-                    // in the future change this out to pull the i4 also.
-                    return new BlitzGraphic() { ImageType = "c16+i4 (TODO - Not supported yet, dont use)", BlitzImage = C16(values, imageWidth, imageHeight) };
+                    return new BlitzGraphic() { ImageType = "i4", BlitzImage = I4(values, imageWidth, imageHeight), Width = imageWidth, Height = imageHeight, IRX = irx, IRY = iry };
+                case 19:
+                    return new BlitzGraphic() { ImageType = "c16PlusI4", BlitzImage = C16I4(values, imageWidth, imageHeight), Width = imageWidth, Height = imageHeight, IRX = irx, IRY = iry };
             }
-            return new BlitzGraphic() { ImageType = "?", BlitzImage = null };
+            return new BlitzGraphic() { ImageType = "?", Width = imageWidth, Height = imageHeight, BlitzImage = null };
         }
 
 
@@ -206,8 +209,8 @@ namespace NFL_Blitz_2000_Roster_Manager.Helpers
             List<int> imagesIndices = new List<int>();
             foreach (byte value in values.Skip(32))
             {
-                    imagesIndices.Add(value >> 4);
-                    imagesIndices.Add((value & 0x0F));
+                imagesIndices.Add(value >> 4);
+                imagesIndices.Add((value & 0x0F));
             }
             //Draw Image
             foreach (int value in imagesIndices)
@@ -246,16 +249,14 @@ namespace NFL_Blitz_2000_Roster_Manager.Helpers
 
 
 
-
-
-
         public Bitmap C16(byte[] values, int imageWidth, int imageHeight)
         {
             Bitmap b = new Bitmap(imageWidth, imageHeight);
             int imageX = 0;
             int imageY = 0;
             int startOfPallete = 31;
-            for (int z = startOfPallete; z + 2 < values.Length; z += 2)
+            int imageSize = startOfPallete + imageHeight * imageWidth * 2;
+            for (int z = startOfPallete; z + 2 < imageSize; z += 2)
             {
                 int val = BitConverter.ToInt16(values, z);
                 int red = (val & 0xF800) >> 8;
@@ -283,6 +284,19 @@ namespace NFL_Blitz_2000_Roster_Manager.Helpers
                         break;
                     }
                 }
+            }
+            return b;
+        }
+
+        public Bitmap C16I4(byte[] values, int imageWidth, int imageHeight)
+        {
+            Bitmap b = new Bitmap(imageWidth, imageHeight * 2);
+            Bitmap c16Image = C16(values, imageWidth, imageHeight);
+            Bitmap i4Image = I4(values.Skip(imageWidth * imageHeight * 2).ToArray(), imageWidth, imageHeight);
+            using (Graphics grfx = Graphics.FromImage(b))
+            {
+                grfx.DrawImage(c16Image, 0, 0);
+                grfx.DrawImage(i4Image, 0, c16Image.Height);
             }
             return b;
         }

@@ -168,8 +168,39 @@ namespace N64ImageViewer
         /// Converts given ObjFile.imageToConvert into N64 texture
         /// </summary>
         /// <param name="imageToConvert">imageToConvert to convert</param>
-        public void  Convert(Bitmap imageToConvert)
+        public void Convert(Bitmap imageToConvert, bool checkC16I4 = true)
         {
+            // C16-I4 Check, Pretty hacky...
+            if (checkC16I4 && imageToConvert.Height % 2 == 0)
+            {
+                //even height, split it in half
+                Bitmap c16, i4;
+                c16 = i4 = new Bitmap(imageToConvert.Width, imageToConvert.Height / 2);
+                Rectangle rect = new Rectangle(0, 0, imageToConvert.Width, imageToConvert.Height / 2);
+                c16 = imageToConvert.Clone(rect, imageToConvert.PixelFormat);
+                rect = new Rectangle(0, imageToConvert.Height / 2, imageToConvert.Width, imageToConvert.Height / 2);
+                i4 = imageToConvert.Clone(rect, imageToConvert.PixelFormat);
+
+                ImageCoder c16ImageCoder = new ImageCoder();
+                c16ImageCoder = new N64ImageViewer.ImageCoder();
+                c16ImageCoder.Convert(c16, false);
+                ImageCoder i4ImageCoder = new ImageCoder();
+                i4ImageCoder.Convert(i4, false);
+                if (c16ImageCoder.n64ImageType.Equals(N64ImageType.c16) && i4ImageCoder.n64ImageType.Equals(N64ImageType.i4))
+                {
+                    n64ImageType = N64ImageType.c16PlusI4;
+                    List<byte> tempData = new List<byte>();
+                    tempData.AddRange(c16ImageCoder.Data);
+                    tempData.AddRange(i4ImageCoder.Data);
+                    Data = tempData.ToArray();
+                    Width = imageToConvert.Width;
+                    Height = imageToConvert.Height / 2; // Height is used for both the C16 and I4 so we need to split it in half, since each image makes up half
+                    HasAlpha = c16ImageCoder.HasAlpha;
+                    return;
+                }
+            }
+            //End C16-I4 check
+
             try
             {
                 N64ImageType imageType;
@@ -216,7 +247,7 @@ namespace N64ImageViewer
                             /* Set type, IA 8-bit */
                             Format = GBI.G_IM_FMT_IA;
                             Size = GBI.G_IM_SIZ_8b;
-
+                            n64ImageType = N64ImageType.ia8;
                             /* Generate texture buffer */
                             Data = new byte[imageToConvert.Width * imageToConvert.Height];
                             Palette = null;
@@ -235,7 +266,7 @@ namespace N64ImageViewer
                             /* Set type, IA 16-bit */
                             Format = GBI.G_IM_FMT_IA;
                             Size = GBI.G_IM_SIZ_16b;
-
+                            n64ImageType = N64ImageType.notSupported; //NFL Blitz does not make use of IA16 Images
                             /* Generate texture buffer */
                             Data = new byte[imageToConvert.Width * imageToConvert.Height * 2];
                             Palette = null;
@@ -264,7 +295,7 @@ namespace N64ImageViewer
                             /* Set type, I 4-bit */
                             Format = GBI.G_IM_FMT_I;
                             Size = GBI.G_IM_SIZ_4b;
-
+                            n64ImageType = N64ImageType.i4;
                             /* Generate texture buffer */
                             Data = new byte[(imageToConvert.Width * imageToConvert.Height) / 2];
                             Palette = null;
@@ -283,7 +314,7 @@ namespace N64ImageViewer
                             /* Set type, I 8-bit */
                             Format = GBI.G_IM_FMT_I;
                             Size = GBI.G_IM_SIZ_8b;
-
+                            n64ImageType = N64ImageType.notSupported; //NFL Blitz does not make use of I8 Images
                             /* Generate texture buffer */
                             Data = new byte[imageToConvert.Width * imageToConvert.Height];
                             Palette = null;
@@ -378,8 +409,8 @@ namespace N64ImageViewer
             }
             catch (Exception ex)
             {
-             //   System.Windows.Forms.MessageBox.Show("imageToConvert '" + imageToConvert.DisplayName + "': " + ex.Message, "Exception", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Exclamation);
-              //  SetInvalidTexture(imageToConvert);
+                //   System.Windows.Forms.MessageBox.Show("imageToConvert '" + imageToConvert.DisplayName + "': " + ex.Message, "Exception", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Exclamation);
+                //  SetInvalidTexture(imageToConvert);
             }
 
             /* Pack texture type */

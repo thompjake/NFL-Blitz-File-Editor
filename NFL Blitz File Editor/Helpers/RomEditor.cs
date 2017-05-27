@@ -5,6 +5,7 @@ using System.Text;
 using NFL_Blitz_2000_Roster_Manager.Models;
 using System.IO;
 using System.Globalization;
+using System.Collections.ObjectModel;
 
 namespace NFL_Blitz_2000_Roster_Manager.Helpers
 {
@@ -23,7 +24,7 @@ namespace NFL_Blitz_2000_Roster_Manager.Helpers
                     //Get Team Name
                     byte thisByte = 01;
                     List<Byte> listOfBytes = new List<byte>();
-                    fs.Position = gameSystemClone.TeamNameOffsetStart + x * gameSystemClone.TeamNameOffsetIncrement;
+                    fs.Position = gameSystemClone.TeamNameOffsetStart + x * gameSystemClone.TeamOffsetIncrement;
                     while (true)
                     {
                         thisByte = byte.Parse(fs.ReadByte().ToString());
@@ -58,18 +59,46 @@ namespace NFL_Blitz_2000_Roster_Manager.Helpers
    FileMode.Open,
    FileAccess.ReadWrite))
             {
-                for (int y = 0; y < blitzTeams.Count;y++)
+                for (int y = 0; y < gameSystem.GameTeamCount;y++)
                 {
                     int fileIndex = 0;
                     blitzTeams[y].TeamFiles = new List<BlitzGameFile>();
-                    for (int x = 0; x < gameSystem.TeamUniformLength / 2;x++)
+                    // Load Uniform
+                    for (int x = 0; x < gameSystem.TeamUniformLength;x++)
                     {
-                        fs.Position = gameSystem.TeamUniformOffset + (gameSystem.TeamUniformIncrement * y) + fileIndex;
+                        fs.Position = gameSystem.TeamUniformOffset + (gameSystem.TeamOffsetIncrement * y) + fileIndex;
                         long fileTableLocation;
                         long.TryParse(ByteArrayToString(new byte[] { (byte)fs.ReadByte(), (byte)fs.ReadByte() }), System.Globalization.NumberStyles.HexNumber, null, out fileTableLocation);
                         fileTableLocation -= 1;
                         blitzTeams[y].TeamFiles.Add(Clone.DeepClone(files[(int)fileTableLocation]));
-                        blitzTeams[y].TeamFiles[blitzTeams[y].TeamFiles.Count - 1].fileDescription = gameSystem.FileNameList[x];
+                        blitzTeams[y].TeamFiles[blitzTeams[y].TeamFiles.Count - 1].fileDescription = gameSystem.UniformFileNameList[x];
+                        blitzTeams[y].TeamFiles[blitzTeams[y].TeamFiles.Count - 1].teamReferenceOffset = fs.Position - 2;
+                        fileIndex += 2;
+                    }
+                    // Load Menu items
+                    fileIndex = 0;
+                    for (int x = 0; x < gameSystem.TeamMenuLength; x++)
+                    {
+                        fs.Position = gameSystem.TeamMenuOffset + (gameSystem.TeamOffsetIncrement * y) + fileIndex;
+                        long fileTableLocation;
+                        long.TryParse(ByteArrayToString(new byte[] { (byte)fs.ReadByte(), (byte)fs.ReadByte() }), System.Globalization.NumberStyles.HexNumber, null, out fileTableLocation);
+                        fileTableLocation -= 1;
+                        blitzTeams[y].TeamFiles.Add(Clone.DeepClone(files[(int)fileTableLocation]));
+                        blitzTeams[y].TeamFiles[blitzTeams[y].TeamFiles.Count - 1].fileDescription = gameSystem.MenuSelectFileNameList[x];
+                        blitzTeams[y].TeamFiles[blitzTeams[y].TeamFiles.Count - 1].teamReferenceOffset = fs.Position - 2;
+                        fileIndex += 2;
+                    }
+
+                    // Load in game team items (endzone, ect...)
+                    fileIndex = 0;
+                    for (int x = 0; x <  gameSystem.TeamInGameLength; x++)
+                    {
+                        fs.Position = gameSystem.TeamInGameOffset + (gameSystem.TeamOffsetIncrement * y) + fileIndex;
+                        long fileTableLocation;
+                        long.TryParse(ByteArrayToString(new byte[] { (byte)fs.ReadByte(), (byte)fs.ReadByte() }), System.Globalization.NumberStyles.HexNumber, null, out fileTableLocation);
+                        fileTableLocation -= 1;
+                        blitzTeams[y].TeamFiles.Add(Clone.DeepClone(files[(int)fileTableLocation]));
+                        blitzTeams[y].TeamFiles[blitzTeams[y].TeamFiles.Count - 1].fileDescription = gameSystem.InGameFileNameList[x];
                         blitzTeams[y].TeamFiles[blitzTeams[y].TeamFiles.Count - 1].teamReferenceOffset = fs.Position - 2;
                         fileIndex += 2;
                     }

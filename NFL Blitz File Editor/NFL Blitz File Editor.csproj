@@ -8,8 +8,8 @@
     <ProjectGuid>{3DC01AFA-14A8-446C-8C59-65151D6CC03B}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>NFL_Blitz_2000_Roster_Manager</RootNamespace>
-    <AssemblyName>NFL Blitz 2000 Roster Manager</AssemblyName>
+    <RootNamespace>NFL_Blitz_File_Editor</RootNamespace>
+    <AssemblyName>NFL Blitz File Editor</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <TargetFrameworkProfile>Client</TargetFrameworkProfile>
     <FileAlignment>512</FileAlignment>
@@ -107,6 +107,9 @@
     </Compile>
     <Compile Include="Models\BlitzGameFile.cs" />
     <Compile Include="Models\BlitzGame.cs" />
+    <Compile Include="Window1.xaml.cs">
+      <DependentUpon>Window1.xaml</DependentUpon>
+    </Compile>
     <Page Include="GraphicEditor.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -116,6 +119,10 @@
       <SubType>Code</SubType>
     </Compile>
     <Page Include="ImagePreview.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Window1.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -174,15 +181,9 @@
     </BootstrapperPackage>
   </ItemGroup>
   <ItemGroup>
-    <Resource Include="dark-metal-grid-7.jpg" />
-  </ItemGroup>
-  <ItemGroup>
     <Content Include="Helpers\precomp2.exe">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-  </ItemGroup>
-  <ItemGroup>
-    <Resource Include="Logo.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

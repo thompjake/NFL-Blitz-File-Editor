@@ -12,6 +12,7 @@ namespace N64ImageViewer
         ci4 = 16,
         i4 = 17,
         c16PlusI4 = 19,
-        ia8 = 24
+        ia8 = 24,
+        notSupported = 9999
     }
 }

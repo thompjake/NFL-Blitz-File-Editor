@@ -11,6 +11,8 @@ namespace N64ImageViewer
         private static readonly int headerSize = 32;
         private static readonly int widthHeaderIndex = 8;
         private static readonly int heightHeaderIndex = 12;
+        private static readonly int irxIndex = 17;
+        private static readonly int iryIndex = 21;
         private static readonly int imageTypeIndex = 7;
         private static readonly int typeIndex = 0;
         private static readonly int versionIndex = 2;
@@ -18,7 +20,7 @@ namespace N64ImageViewer
         private static readonly byte[] type = new byte[]{0x77,0x6E};
         private static readonly int version = 2;
 
-        public static byte[] CreateNFLBlitz2000Header(int width, int height, bool containsAlpha,byte imageType)
+        public static byte[] CreateNFLBlitz2000Header(int width, int height, bool containsAlpha,byte imageType, int irx = 0, int iry = 0)
         {
             List<byte> header = new List<byte>(new byte[headerSize]);
             header[typeIndex] = type[0];
@@ -32,6 +34,12 @@ namespace N64ImageViewer
                 header[x] = BitsHelper.intToByteArray(width)[x - widthHeaderIndex];
             for (int x = heightHeaderIndex; x < heightHeaderIndex + 4; x++)
                 header[x] = BitsHelper.intToByteArray(height)[x - heightHeaderIndex];
+            if(irx !=0)
+            for (int x = irxIndex; x < irxIndex + 4; x++)
+                header[x] = BitsHelper.intToByteArray(irx)[x - irxIndex];
+            if (iry != 0)
+                for (int x = iryIndex; x < iryIndex + 4; x++)
+                    header[x] = BitsHelper.intToByteArray(iry)[x - iryIndex];
             return header.ToArray();
         }
 

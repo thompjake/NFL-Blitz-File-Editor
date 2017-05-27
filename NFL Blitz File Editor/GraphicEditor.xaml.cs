@@ -27,14 +27,22 @@ namespace NFL_Blitz_2000_Roster_Manager
     /// </summary>
     public partial class GraphicEditor : Window, INotifyPropertyChanged
     {
+
         private string romLocation;
         private BlitzGame gameInfo;
         private Teams blitzTeams;
+        private BlitzGraphic selectedGraphic;
+
+        public BlitzGraphic SelectedGraphic
+        {
+            get { return selectedGraphic; }
+            set { selectedGraphic = value; }
+        }
 
         public Teams BlitzTeams
         {
             get { return blitzTeams; }
-            set { blitzTeams = value; }
+            set { blitzTeams = value; NotifiyPropertyChanged("BlitzTeams"); }
         }
 
         public GraphicEditor()
@@ -44,7 +52,7 @@ namespace NFL_Blitz_2000_Roster_Manager
         }
 
         private List<BlitzGameFile> filesSortedByOffset;
-
+        private List<BlitzGameFile> gameFiles;
 
         private List<BlitzGameFile> ParseBlitzFileList(string romLocation, BlitzGame gameInfo)
         {
@@ -113,9 +121,10 @@ FileAccess.ReadWrite))
         private void LoadRom(string romLocation)
         {
             gameInfo = BlitzGame.GetBlitz2000Zoinkity();
+            tbTeamCount.Text = gameInfo.GameTeamCount.ToString();
             this.romLocation = romLocation;
             BlitzTeams = RomEditor.ReadRom(romLocation, gameInfo);
-            List<BlitzGameFile> gameFiles = ParseBlitzFileList(romLocation, gameInfo);
+            gameFiles = ParseBlitzFileList(romLocation, gameInfo);
             filesSortedByOffset = Clone.DeepClone(gameFiles).OrderBy(x => x.fileOffset).ToList();
             lbGameFiles.ItemsSource = gameFiles;
             RomEditor.ReadTeamFiles(romLocation, gameInfo, ref blitzTeams, gameFiles);
@@ -135,7 +144,6 @@ FileAccess.ReadWrite))
                     ImageCoder imageCoder = new ImageCoder();
                     imageCoder.Convert(new Bitmap(openDialog.FileName));
                     List<byte> convertedImage = new List<byte>();
-                    //Use Existing Image Header
                     convertedImage.AddRange(Blitz2000Header.CreateNFLBlitz2000Header(imageCoder.Width, imageCoder.Height, imageCoder.HasAlpha, (byte)imageCoder.n64ImageType));
                     convertedImage.AddRange(imageCoder.Data);
                     if (imageCoder.Palette != null)
@@ -145,52 +153,58 @@ FileAccess.ReadWrite))
                     File.WriteAllBytes(openDialog.FileName, convertedImage.ToArray());
                 }
                 replacementFile = File.ReadAllBytes(openDialog.FileName);
-                byte[] compressedFileBytes = MiniLZO.MiniLZO.CompressWithPrecomp2(openDialog.FileName);
-
-                int compressedSize = compressedFileBytes.Length;
-                if ((compressedSize & 1) != 0)
-                {
-                    List<byte> tempList = compressedFileBytes.ToList();
-                    tempList.Add(0x00);
-                    compressedFileBytes = tempList.ToArray();
-                }
-
-                int differenceInSize;
-                BlitzGameFile selectedGame = (BlitzGameFile)lbGameFiles.SelectedItem;
-                int indexOfFileInSortedList = filesSortedByOffset.FindIndex(x => x.fileOffset == selectedGame.fileOffset);
-                long currentTableOffset;
-                int fileTableEntrySize = gameInfo.maxFileNameLenght + gameInfo.filePositionLength + gameInfo.decompressedLenght + gameInfo.compressedLenght;
-                int fileCount;
-                using (var fs = new FileStream(romLocation, FileMode.Open, FileAccess.ReadWrite))
-                {
-                    //Update tableOffsetLocation
-                    currentTableOffset = BitsHelper.GetNumberFromBytes(BitsHelper.ReadBytesFromFileStream(fs, gameInfo.FileSystemOffset + 8, 4).ToArray());// +gameInfo.FileSystemOffset;
-                    differenceInSize = (int)(compressedFileBytes.Length - selectedGame.compressedSize);
-                    long newTableOffset = currentTableOffset + differenceInSize;
-                    byte[] newTableOffsetBytes = BitConverter.GetBytes((Int32)newTableOffset);
-                    Array.Reverse(newTableOffsetBytes);
-                    BitsHelper.WritBytesToFileStream(newTableOffsetBytes, fs, gameInfo.FileSystemOffset + 8);
-                    fileCount = BitsHelper.GetNumberFromBytes(BitsHelper.ReadBytesFromFileStream(fs, gameInfo.FileSystemOffset + 12, 4).ToArray());
-                }
-
-                //move the files that are after this entry
-                byte[] fullRom = File.ReadAllBytes(romLocation);
-                byte[] fileTable = fullRom.ToList().GetRange((int)(currentTableOffset + gameInfo.FileSystemOffset), fileTableEntrySize * fileCount).ToArray();
-                int filesAfterStart = (int)filesSortedByOffset[indexOfFileInSortedList + 1].fileOffset;
-                byte[] filesAfterNewFile = fullRom.ToList().GetRange(filesAfterStart, (int)(currentTableOffset + gameInfo.FileSystemOffset) - filesAfterStart - 1).ToArray();
-
-                RomEditor.ByteArrayToFile(romLocation, filesAfterNewFile, filesAfterStart + differenceInSize);
-                //Write new file
-                RomEditor.ByteArrayToFile(romLocation, compressedFileBytes, (int)selectedGame.fileOffset);
-                filesSortedByOffset[indexOfFileInSortedList].compressedSize = compressedSize;
-                filesSortedByOffset[indexOfFileInSortedList].decompressedSize = replacementFile.Length;
-                // fix/write to file table
-                RomEditor.ByteArrayToFile(romLocation, fileTable, (int)(currentTableOffset + gameInfo.FileSystemOffset) + differenceInSize);
-                AdjustFileTable(indexOfFileInSortedList + 1, differenceInSize);
-                WritewFileTableToRom(differenceInSize);
-                LoadRom(romLocation);
+                InsertReplacementFile(replacementFile);
             }
         }
+
+        private void InsertReplacementFile(byte[] replacementFile)
+        {
+            File.WriteAllBytes("temp.wms", replacementFile);
+            byte[] compressedFileBytes = MiniLZO.MiniLZO.Compress(replacementFile);
+            int compressedSize = compressedFileBytes.Length;
+            if ((compressedSize & 1) != 0)
+            {
+                List<byte> tempList = compressedFileBytes.ToList();
+                tempList.Add(0x00);
+                compressedFileBytes = tempList.ToArray();
+            }
+
+            int differenceInSize;
+            BlitzGameFile selectedGame = (BlitzGameFile)lbGameFiles.SelectedItem;
+            int indexOfFileInSortedList = filesSortedByOffset.FindIndex(x => x.fileOffset == selectedGame.fileOffset);
+            long currentTableOffset;
+            int fileTableEntrySize = gameInfo.maxFileNameLenght + gameInfo.filePositionLength + gameInfo.decompressedLenght + gameInfo.compressedLenght;
+            int fileCount;
+            using (var fs = new FileStream(romLocation, FileMode.Open, FileAccess.ReadWrite))
+            {
+                //Update tableOffsetLocation
+                currentTableOffset = BitsHelper.GetNumberFromBytes(BitsHelper.ReadBytesFromFileStream(fs, gameInfo.FileSystemOffset + 8, 4).ToArray());// +gameInfo.FileSystemOffset;
+                differenceInSize = (int)(compressedFileBytes.Length - selectedGame.compressedSize);
+                long newTableOffset = currentTableOffset + differenceInSize;
+                byte[] newTableOffsetBytes = BitConverter.GetBytes((Int32)newTableOffset);
+                Array.Reverse(newTableOffsetBytes);
+                BitsHelper.WritBytesToFileStream(newTableOffsetBytes, fs, gameInfo.FileSystemOffset + 8);
+                fileCount = BitsHelper.GetNumberFromBytes(BitsHelper.ReadBytesFromFileStream(fs, gameInfo.FileSystemOffset + 12, 4).ToArray());
+            }
+
+            //move the files that are after this entry
+            byte[] fullRom = File.ReadAllBytes(romLocation);
+            byte[] fileTable = fullRom.ToList().GetRange((int)(currentTableOffset + gameInfo.FileSystemOffset), fileTableEntrySize * fileCount).ToArray();
+            int filesAfterStart = (int)filesSortedByOffset[indexOfFileInSortedList + 1].fileOffset;
+            byte[] filesAfterNewFile = fullRom.ToList().GetRange(filesAfterStart, (int)(currentTableOffset + gameInfo.FileSystemOffset) - filesAfterStart - 1).ToArray();
+
+            RomEditor.ByteArrayToFile(romLocation, filesAfterNewFile, filesAfterStart + differenceInSize);
+            //Write new file
+            RomEditor.ByteArrayToFile(romLocation, compressedFileBytes, (int)selectedGame.fileOffset);
+            filesSortedByOffset[indexOfFileInSortedList].compressedSize = compressedSize;
+            filesSortedByOffset[indexOfFileInSortedList].decompressedSize = replacementFile.Length;
+            // fix/write to file table
+            RomEditor.ByteArrayToFile(romLocation, fileTable, (int)(currentTableOffset + gameInfo.FileSystemOffset) + differenceInSize);
+            AdjustFileTable(indexOfFileInSortedList + 1, differenceInSize);
+            WritewFileTableToRom(differenceInSize);
+            LoadRom(romLocation);
+        }
+
 
         private void AdjustFileTable(int positionInTable, int offsetDifference)
         {
@@ -363,9 +377,7 @@ FileAccess.ReadWrite))
 
         private void WriteNewFileTableToRom(BlitzGameFile newGameFile)
         {
-            using (var fs = new FileStream(romLocation,
-FileMode.Open,
-FileAccess.ReadWrite))
+            using (var fs = new FileStream(romLocation,FileMode.Open,FileAccess.ReadWrite))
             {
 
                 int writeLocation = (int)newGameFile.fileTableEntryStart;
@@ -421,42 +433,117 @@ FileAccess.ReadWrite))
         /// <param name="e"></param>
         private void lbGameFiles_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (lbGameFiles.SelectedItem != null && ((BlitzGameFile)lbGameFiles.SelectedItem).fileName.Split('.')[1].Equals("wms"))
+            BlitzGameFile file = (BlitzGameFile)lbGameFiles.SelectedItem;
+            if (lbGameFiles.SelectedItem != null && file.fileName.Split('.')[1].Equals("wms"))
             {
-                ImageDecoder decoder = new ImageDecoder();
-                byte[] fullRom = File.ReadAllBytes(romLocation);
-                byte[] fileBytes = fullRom.ToList().GetRange((int)((BlitzGameFile)lbGameFiles.SelectedItem).fileOffset, (int)((BlitzGameFile)lbGameFiles.SelectedItem).compressedSize).ToArray();
-                byte[] decompressedFileBytes = new byte[(int)((BlitzGameFile)lbGameFiles.SelectedItem).decompressedSize];
-                MiniLZO.MiniLZO.Decompress(fileBytes, decompressedFileBytes);
-                BlitzGraphic graphic = decoder.ReadFile(decompressedFileBytes);
-                Bitmap image = graphic.BlitzImage;
-                imagePreviewPanel.Visibility = Visibility.Visible;
-                if (image != null)
-                {
-                    using (MemoryStream memory = new MemoryStream())
-                    {
-                        image.Save(memory, ImageFormat.Png);
-                        memory.Position = 0;
-                        BitmapImage bitmapImage = new BitmapImage();
-                        bitmapImage.BeginInit();
-                        bitmapImage.StreamSource = memory;
-                        bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
-                        bitmapImage.EndInit();
-                        previewImage.Source = bitmapImage;
-                        previewImage.Width = image.Width;
-                        previewImage.Height = image.Height;
-                    }
-                }
-                else
-                {
-                    previewImage.Source = null;
-                }
-                tbImageType.Text = graphic.ImageType;
+
+                SetImagePreview(GetBlitzGraphic(file));
             }
             else
             {
                 imagePreviewPanel.Visibility = Visibility.Hidden;
             }
         }
+
+        private BlitzGraphic GetBlitzGraphic(BlitzGameFile file)
+        {
+            ImageDecoder decoder = new ImageDecoder();
+            byte[] fullRom = File.ReadAllBytes(romLocation);
+            byte[] fileBytes = fullRom.ToList().GetRange((int)file.fileOffset, (int)file.compressedSize).ToArray();
+            byte[] decompressedFileBytes = new byte[(int)file.decompressedSize];
+            MiniLZO.MiniLZO.Decompress(fileBytes, decompressedFileBytes);
+            return decoder.ReadFile(decompressedFileBytes);
+        }
+        private byte[] GetFileBytes(BlitzGameFile file)
+        {
+            ImageDecoder decoder = new ImageDecoder();
+            byte[] fullRom = File.ReadAllBytes(romLocation);
+            byte[] fileBytes = fullRom.ToList().GetRange((int)file.fileOffset, (int)file.compressedSize).ToArray();
+            byte[] decompressedFileBytes = new byte[(int)file.decompressedSize];
+            MiniLZO.MiniLZO.Decompress(fileBytes, decompressedFileBytes);
+            return decompressedFileBytes;
+        }
+
+        private void SetImagePreview(BlitzGraphic graphic)
+        {
+            SelectedGraphic = graphic;
+            Bitmap image = graphic.BlitzImage;
+            imagePreviewPanel.Visibility = Visibility.Visible;
+            if (image != null)
+            {
+                using (MemoryStream memory = new MemoryStream())
+                {
+                    image.Save(memory, ImageFormat.Png);
+                    memory.Position = 0;
+                    BitmapImage bitmapImage = new BitmapImage();
+                    bitmapImage.BeginInit();
+                    bitmapImage.StreamSource = memory;
+                    bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+                    bitmapImage.EndInit();
+                    previewImage.Source = bitmapImage;            
+                }
+            }
+            else
+            {
+                previewImage.Source = null;
+            }
+            tbImageType.Text = graphic.ImageType;
+            tbIRX.Text = graphic.IRX.ToString();
+            tbIRY.Text = graphic.IRY.ToString();
+        }
+
+        private void teamView_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+        {
+            if (teamView.SelectedItem.GetType().Equals(typeof(BlitzGameFile)))
+            {
+                BlitzGameFile file = (BlitzGameFile)teamView.SelectedItem;
+                if (teamView.SelectedItem != null && file.fileName.Split('.')[1].Equals("wms"))
+                {
+                    SetImagePreview(GetBlitzGraphic(file));
+                }
+                else
+                {
+                    imagePreviewPanel.Visibility = Visibility.Hidden;
+                }
+            }
+            else
+            {
+                imagePreviewPanel.Visibility = Visibility.Hidden;
+            }
+        }
+
+        private void btnUpdateImageValues_Click(object sender, RoutedEventArgs e)
+        {
+            BlitzGameFile file = (BlitzGameFile)lbGameFiles.SelectedItem;
+            byte[] fileBytes = GetFileBytes(file).Skip(32).ToArray();
+            List<byte> newHeaderFileBytes = new List<byte>();
+            newHeaderFileBytes.AddRange(
+                Blitz2000Header.CreateNFLBlitz2000Header
+                (selectedGraphic.Width,
+                selectedGraphic.Height,
+                true,
+                (byte)((N64ImageType)Enum.Parse(typeof(N64ImageType),selectedGraphic.ImageType)),
+                int.Parse(tbIRX.Text),
+                int.Parse(tbIRY.Text)
+                ));
+            newHeaderFileBytes.AddRange(fileBytes);
+            InsertReplacementFile(newHeaderFileBytes.ToArray());
+        }
+
+        private void btnReloadTeamFiles_Click(object sender, RoutedEventArgs e)
+        {
+            if (gameFiles != null)
+            {
+                int teamCount;
+                if (int.TryParse(tbTeamCount.Text, out teamCount))
+                {
+                    gameInfo.GameTeamCount = teamCount;
+                }
+                Teams tempTeams = RomEditor.ReadRom(romLocation, gameInfo);
+                RomEditor.ReadTeamFiles(romLocation, gameInfo, ref tempTeams, gameFiles);
+                BlitzTeams = tempTeams;
+            }
+        }
+
     }
 }

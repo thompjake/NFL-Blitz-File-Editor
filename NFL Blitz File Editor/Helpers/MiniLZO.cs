@@ -52,6 +52,8 @@ namespace MiniLZO
     using System;
     using System.Diagnostics;
     using System.IO;
+    using System.Reflection;
+
     public static class MiniLZO
     {
         unsafe static uint lzo1x_1_compress_core(byte* @in, uint in_len, byte* @out, ref uint out_len, uint ti, void* wrkmem)
@@ -468,14 +470,15 @@ namespace MiniLZO
         public static byte[] CompressWithPrecomp2(string fileLocation)
     {
         Process precomp2 = new Process();
-        precomp2.StartInfo.FileName = "precomp2.exe";
+        precomp2.StartInfo.FileName = System.IO.Path.GetDirectoryName(Assembly.GetEntryAssembly().Location) + "\\Helpers\\precomp2.exe";
         string tempFileName = "Temp" +".wms";
-        precomp2.StartInfo.Arguments = "\"" + fileLocation + "\" " + tempFileName;
+        precomp2.StartInfo.Arguments = "\"" + fileLocation + "\" " + "\"" + System.IO.Path.GetDirectoryName(Assembly.GetEntryAssembly().Location) + "\\" + tempFileName + "\"";
         precomp2.Start();
         precomp2.WaitForExit();
         byte[] compressedFile = File.ReadAllBytes(tempFileName);
         File.Delete(tempFileName);
         return compressedFile;
     }
+
     }
 }

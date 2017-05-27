@@ -22,24 +22,38 @@
                     </ListBox>
                 </TabItem>
                 <TabItem Header="Files By Team">
-                    <TreeView Name="teamView" ItemsSource="{Binding BlitzTeams}">
-                        <TreeView.ItemTemplate>
-                            <HierarchicalDataTemplate ItemsSource="{Binding TeamFiles}">
-                                <TextBlock Foreground="Red" Text="{Binding TeamName}" />
-                                <!-- Team template -->
-                                <HierarchicalDataTemplate.ItemTemplate>
-                                            <DataTemplate>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="{Binding fileName}" />
-                                            <TextBlock Text=" (" />
-                                            <TextBlock Text="{Binding fileDescription}" />
-                                            <TextBlock Text=")" />
-                                        </StackPanel>
-                                    </DataTemplate>
-                                        </HierarchicalDataTemplate.ItemTemplate>
-                                    </HierarchicalDataTemplate>
-                        </TreeView.ItemTemplate>
-                    </TreeView>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="25" />
+                            <RowDefinition Height="*"  />
+                        </Grid.RowDefinitions>
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Label>Team Count:</Label>
+                            <TextBox Height="25" Width="50"  Name="tbTeamCount"></TextBox>
+                            <Button Name="btnReloadTeamFiles" Click="btnReloadTeamFiles_Click">Reload Team Files</Button>
+                        </StackPanel>
+                        <TreeView Grid.Row="1" Name="teamView" ItemsSource="{Binding BlitzTeams}" SelectedItemChanged="teamView_SelectedItemChanged">
+                            <TreeView.ItemTemplate>
+                                <HierarchicalDataTemplate ItemsSource="{Binding TeamFiles}">
+                                    <TextBlock Foreground="Red" Text="{Binding TeamName}" />
+                                    <!-- Team template -->
+                                    <HierarchicalDataTemplate.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding fileName}" />
+                                                <TextBlock Text=" (" />
+                                                <TextBlock Text="{Binding fileDescription}" />
+                                                <TextBlock Text=")" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </HierarchicalDataTemplate.ItemTemplate>
+                                </HierarchicalDataTemplate>
+                            </TreeView.ItemTemplate>
+                        </TreeView>
+                    </Grid>
                 </TabItem>
             </TabControl>
             <Grid>
@@ -51,19 +65,25 @@
                     <RowDefinition />
                 </Grid.RowDefinitions>
                 <StackPanel HorizontalAlignment="Left" MaxWidth="200px">
-            <Button Margin="0,0,0,5" Name="btnLoadReplacementFile" Click="btnLoadReplacementFile_Click">Replace Selected File</Button>
-            <Button Margin="0,0,0,5" Name="btnExportSelectedFile" Click="btnExportSelectedFile_Click">Export Selected File</Button>
-            <Button Margin="0,0,0,5" Name="btnSetTeamFileFromSelectedAllFile" Click="btnSetTeamFileFromSelectedAllFile_Click">Set Team File From Selected All Files</Button>
-            <Button Margin="0,0,0,5" Name="btnInsertNewFile" Click="btnInsertNewFile_Click">Insert New File</Button>
-            </StackPanel>
+                    <Button Margin="0,0,0,5" Name="btnLoadReplacementFile" Click="btnLoadReplacementFile_Click">Replace Selected File</Button>
+                    <Button Margin="0,0,0,5" Name="btnExportSelectedFile" Click="btnExportSelectedFile_Click">Export Selected File</Button>
+                    <Button Margin="0,0,0,5" Name="btnSetTeamFileFromSelectedAllFile" Click="btnSetTeamFileFromSelectedAllFile_Click">Set Team File From Selected All Files</Button>
+                    <Button Margin="0,0,0,5" Name="btnInsertNewFile" Click="btnInsertNewFile_Click">Insert New File</Button>
+                </StackPanel>
                 <GroupBox Header="File Details" Grid.Column="1">
                     <StackPanel Name="imagePreviewPanel" Visibility="Hidden">
                         <Label FontWeight="Bold">Image Preview:</Label>
-                        <Image  MouseDown="previewImage_Click" Name="previewImage" MinWidth="200" MaxWidth="300"></Image>
+                        <Image  MouseDown="previewImage_Click" Name="previewImage" MaxHeight="100" MaxWidth="300"></Image>
                         <Label FontWeight="Bold">Image Type:</Label>
-                        <TextBlock Name="tbImageType">dedef</TextBlock>
-                        <CheckBox Content="Use existing header when replacing image"></CheckBox>
-                    </StackPanel>  
+                        <TextBlock Name="tbImageType"></TextBlock>
+                        <StackPanel Orientation="Horizontal">
+                            <Label FontWeight="Bold">irx:</Label>
+                            <TextBox VerticalAlignment="Center" Name="tbIRX"></TextBox>
+                            <Label FontWeight="Bold">iry:</Label>
+                            <TextBox VerticalAlignment="Center" Name="tbIRY"></TextBox>
+                        </StackPanel>
+                        <Button Name="btnUpdateImageValues" Click="btnUpdateImageValues_Click">Update Values</Button>
+                    </StackPanel>
                 </GroupBox>
             </Grid>
         </StackPanel>
