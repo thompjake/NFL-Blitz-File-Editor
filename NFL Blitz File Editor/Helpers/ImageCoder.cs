@@ -370,11 +370,17 @@ namespace N64ImageViewer
                         Format = GBI.G_IM_FMT_CI;
                         Size = GBI.G_IM_SIZ_8b;
                         n64ImageType = N64ImageType.ci8;
-                        /* Generate texture buffer */
-                        Data = new byte[imageToConvert.Width * imageToConvert.Height];
+                        /* Generate texture buffer
+                         * NFL BLitz requires CI8 to be padded to 8 bytes */
+                        int dataSize = (imageToConvert.Width * imageToConvert.Height);
+                        while (dataSize % 8 != 0)
+                        {
+                            dataSize++;
+                        }
+                        Data = new byte[dataSize];
 
-                        /* Generate 256-color RGBA5551 palette */
-                        Palette = GeneratePalette(UniqueColors, UniqueColors.Count);
+                        /* Generate 256-color RGBA5551 palette */ //setting it to 256 works for editor chaneg back to UniqueColors.Count
+                        Palette = GeneratePalette(UniqueColors, 256);
 
                         /* Loop through pixels, get palette indexes, write to texture buffer */
                         for (int i = 0, j = 0; i < Raw.Length; i += 4, j++)

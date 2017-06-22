@@ -202,7 +202,7 @@ FileAccess.ReadWrite))
             RomEditor.ByteArrayToFile(romLocation, fileTable, (int)(currentTableOffset + gameInfo.FileSystemOffset) + differenceInSize);
             AdjustFileTable(indexOfFileInSortedList + 1, differenceInSize);
             WritewFileTableToRom(differenceInSize);
-            LoadRom(romLocation);
+            //LoadRom(romLocation);
         }
 
 

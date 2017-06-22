@@ -24,18 +24,19 @@
                 <TabItem Header="Files By Team">
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition/>
+                            <ColumnDefinition Width="10*"/>
+                            <ColumnDefinition Width="283*"/>
                         </Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="25" />
                             <RowDefinition Height="*"  />
                         </Grid.RowDefinitions>
-                        <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Grid.Column="1">
                             <Label>Team Count:</Label>
                             <TextBox Height="25" Width="50"  Name="tbTeamCount"></TextBox>
                             <Button Name="btnReloadTeamFiles" Click="btnReloadTeamFiles_Click">Reload Team Files</Button>
                         </StackPanel>
-                        <TreeView Grid.Row="1" Name="teamView" ItemsSource="{Binding BlitzTeams}" SelectedItemChanged="teamView_SelectedItemChanged">
+                        <TreeView Grid.Row="1" Name="teamView" ItemsSource="{Binding BlitzTeams}" SelectedItemChanged="teamView_SelectedItemChanged" Grid.ColumnSpan="2">
                             <TreeView.ItemTemplate>
                                 <HierarchicalDataTemplate ItemsSource="{Binding TeamFiles}">
                                     <TextBlock Foreground="Red" Text="{Binding TeamName}" />
