@@ -144,7 +144,10 @@ FileAccess.ReadWrite))
                     ImageCoder imageCoder = new ImageCoder();
                     imageCoder.Convert(new Bitmap(openDialog.FileName));
                     List<byte> convertedImage = new List<byte>();
-                    convertedImage.AddRange(Blitz2000Header.CreateNFLBlitz2000Header(imageCoder.Width, imageCoder.Height, imageCoder.HasAlpha, (byte)imageCoder.n64ImageType));
+                    // testing out using part of existing header TODO
+                    BlitzGameFile selectedGame = (BlitzGameFile)lbGameFiles.SelectedItem;
+                    BlitzGraphic currentGraphic = GetBlitzGraphic(selectedGame);
+                    convertedImage.AddRange(Blitz2000Header.CreateNFLBlitz2000Header(imageCoder.Width, imageCoder.Height, imageCoder.HasAlpha, (byte)imageCoder.n64ImageType, currentGraphic.IRX, currentGraphic.IRY));
                     convertedImage.AddRange(imageCoder.Data);
                     if (imageCoder.Palette != null)
                         convertedImage.AddRange(imageCoder.Palette);
@@ -180,7 +183,12 @@ FileAccess.ReadWrite))
                 //Update tableOffsetLocation
                 currentTableOffset = BitsHelper.GetNumberFromBytes(BitsHelper.ReadBytesFromFileStream(fs, gameInfo.FileSystemOffset + 8, 4).ToArray());// +gameInfo.FileSystemOffset;
                 differenceInSize = (int)(compressedFileBytes.Length - selectedGame.compressedSize);
-                long newTableOffset = currentTableOffset + differenceInSize;
+                //helps prevent writing to off addresses TODO: rewrite this logic
+                if ((differenceInSize & 1) != 0)
+                {
+                    differenceInSize++;
+                }
+                    long newTableOffset = currentTableOffset + differenceInSize;
                 byte[] newTableOffsetBytes = BitConverter.GetBytes((Int32)newTableOffset);
                 Array.Reverse(newTableOffsetBytes);
                 BitsHelper.WritBytesToFileStream(newTableOffsetBytes, fs, gameInfo.FileSystemOffset + 8);
@@ -202,7 +210,7 @@ FileAccess.ReadWrite))
             RomEditor.ByteArrayToFile(romLocation, fileTable, (int)(currentTableOffset + gameInfo.FileSystemOffset) + differenceInSize);
             AdjustFileTable(indexOfFileInSortedList + 1, differenceInSize);
             WritewFileTableToRom(differenceInSize);
-            //LoadRom(romLocation);
+            LoadRom(romLocation);
         }
 
 
@@ -214,7 +222,10 @@ FileAccess.ReadWrite))
             }
         }
 
-
+        /// <summary>
+        /// TODO: Make sure to write to even offset, odds do not work on real system
+        /// </summary>
+        /// <param name="offsetDifference"></param>
         private void WritewFileTableToRom(int offsetDifference)
         {
             using (var fs = new FileStream(romLocation,
@@ -377,7 +388,7 @@ FileAccess.ReadWrite))
 
         private void WriteNewFileTableToRom(BlitzGameFile newGameFile)
         {
-            using (var fs = new FileStream(romLocation,FileMode.Open,FileAccess.ReadWrite))
+            using (var fs = new FileStream(romLocation, FileMode.Open, FileAccess.ReadWrite))
             {
 
                 int writeLocation = (int)newGameFile.fileTableEntryStart;
@@ -480,7 +491,7 @@ FileAccess.ReadWrite))
                     bitmapImage.StreamSource = memory;
                     bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
                     bitmapImage.EndInit();
-                    previewImage.Source = bitmapImage;            
+                    previewImage.Source = bitmapImage;
                 }
             }
             else
@@ -522,7 +533,7 @@ FileAccess.ReadWrite))
                 (selectedGraphic.Width,
                 selectedGraphic.Height,
                 true,
-                (byte)((N64ImageType)Enum.Parse(typeof(N64ImageType),selectedGraphic.ImageType)),
+                (byte)((N64ImageType)Enum.Parse(typeof(N64ImageType), selectedGraphic.ImageType)),
                 int.Parse(tbIRX.Text),
                 int.Parse(tbIRY.Text)
                 ));
