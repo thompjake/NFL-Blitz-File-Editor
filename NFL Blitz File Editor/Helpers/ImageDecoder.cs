@@ -45,13 +45,13 @@ namespace NFL_Blitz_2000_Roster_Manager.Helpers
                 case 08:
                     return new BlitzGraphic() { ImageType = "c16", BlitzImage = C16(values, imageWidth, imageHeight), Width = imageWidth, Height = imageHeight, IRX = irx, IRY = iry };
                 case 16:
-                    return new BlitzGraphic() { ImageType = "cI4", BlitzImage = CI4(values, imageWidth, imageHeight), Width = imageWidth, Height = imageHeight, IRX = irx, IRY = iry };
+                    return new BlitzGraphic() { ImageType = "ci4", BlitzImage = CI4(values, imageWidth, imageHeight), Width = imageWidth, Height = imageHeight, IRX = irx, IRY = iry };
                 case 17:
                     return new BlitzGraphic() { ImageType = "i4", BlitzImage = I4(values, imageWidth, imageHeight), Width = imageWidth, Height = imageHeight, IRX = irx, IRY = iry };
                 case 19:
                     return new BlitzGraphic() { ImageType = "c16PlusI4", BlitzImage = C16I4(values, imageWidth, imageHeight), Width = imageWidth, Height = imageHeight, IRX = irx, IRY = iry };
             }
-            return new BlitzGraphic() { ImageType = "?", Width = imageWidth, Height = imageHeight, BlitzImage = null };
+            return new BlitzGraphic() { ImageType = "notSupported", Width = imageWidth, Height = imageHeight, BlitzImage = null };
         }
 
 
@@ -75,7 +75,7 @@ namespace NFL_Blitz_2000_Roster_Manager.Helpers
                 B = (byte)((color & 0x3E) << 2);
                 G = (byte)((color & 0x7C0) >> 3);
                 R = (byte)((color & 0xF800) >> 8);
-                A = (byte)(0xFF * ((color) & 1));
+                A = 255;
                 palette[i] = Color.FromArgb(A, R, G, B);
             }
 
@@ -148,7 +148,7 @@ namespace NFL_Blitz_2000_Roster_Manager.Helpers
                 B = (byte)((color & 0x3E) << 2);
                 G = (byte)((color & 0x7C0) >> 3);
                 R = (byte)((color & 0xF800) >> 8);
-                A = (byte)(0xFF * ((color) & 1));
+                A = 255;
                 palette[i] = Color.FromArgb(A, R, G, B);
             }
 

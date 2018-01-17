@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Text;
+using N64ImageViewer;
 
 namespace NFL_Blitz_2000_Roster_Manager.Models
 {

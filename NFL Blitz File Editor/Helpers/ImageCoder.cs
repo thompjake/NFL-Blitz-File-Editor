@@ -5,11 +5,12 @@ using System.Text;
 using System.Drawing;
 using System.Drawing.Imaging;
 using SharpOcarina;
+using nQuant;
 /* 
- * NTexture.cs / Semi-intelligent N64 texture converter
- * Analyzes image to determine best possible N64 texture format (well, sort of)
- * Written in 2011 by xdaniel
- */
+* NTexture.cs / Semi-intelligent N64 texture converter
+* Analyzes image to determine best possible N64 texture format (well, sort of)
+* Written in 2011 by xdaniel
+*/
 
 namespace N64ImageViewer
 {
@@ -54,6 +55,38 @@ namespace N64ImageViewer
         public bool HasAlpha;
 
         public N64ImageType n64ImageType;
+
+        private List<Color> UniqueColors;
+
+        private byte[] Raw;
+
+        private void SetupCoder(Bitmap imageToConvert)
+        {
+            BitmapData RawBmp = null;
+            Raw = null;
+            CheckImageProperties(imageToConvert);
+            try
+            {
+                RawBmp = imageToConvert.LockBits(
+                    new Rectangle(0, 0, (int)imageToConvert.Width, (int)imageToConvert.Height),
+                    ImageLockMode.ReadOnly,
+                    PixelFormat.Format32bppArgb
+                );
+
+                int Size = RawBmp.Height * RawBmp.Stride;
+                Raw = new byte[Size];
+
+                System.Runtime.InteropServices.Marshal.Copy(RawBmp.Scan0, Raw, 0, Size);
+            }
+            finally
+            {
+                if (RawBmp != null)
+                    imageToConvert.UnlockBits(RawBmp);
+            }
+            UniqueColors = GetUniqueColors(imageToConvert);
+            CheckImageProperties(imageToConvert);
+        }
+
 
         /// <summary>
         /// Find and return all unique colors of a bitmap
@@ -164,6 +197,30 @@ namespace N64ImageViewer
             return -1;
         }
 
+
+        public void ConvertTo(Bitmap imageToConvert, N64ImageType type)
+        {
+            SetupCoder(imageToConvert);
+            switch (type)
+            {
+                case N64ImageType.c16:
+                    {
+                        ConvertToC16(imageToConvert);
+                        return;
+                    };
+                case N64ImageType.ci8:
+                    {
+                        ConvertToCi8(imageToConvert);
+                        return;
+                    }
+                case N64ImageType.c16PlusI4:
+                    {
+                        ConvertToc16PlusI4(imageToConvert);
+                        return;
+                    }
+            }
+        }
+
         /// <summary>
         /// Converts given ObjFile.imageToConvert into N64 texture
         /// </summary>
@@ -200,40 +257,9 @@ namespace N64ImageViewer
                 }
             }
             //End C16-I4 check
-
             try
             {
-                N64ImageType imageType;
-                BitmapData RawBmp = null;
-                byte[] Raw = null;
-
-                IsGrayscale = false;
-                HasAlpha = false;
-
-                CheckImageProperties(imageToConvert);
-
-                try
-                {
-                    RawBmp = imageToConvert.LockBits(
-                        new Rectangle(0, 0, (int)imageToConvert.Width, (int)imageToConvert.Height),
-                        ImageLockMode.ReadOnly,
-                        PixelFormat.Format32bppArgb
-                    );
-
-                    int Size = RawBmp.Height * RawBmp.Stride;
-                    Raw = new byte[Size];
-
-                    System.Runtime.InteropServices.Marshal.Copy(RawBmp.Scan0, Raw, 0, Size);
-                }
-                finally
-                {
-                    if (RawBmp != null)
-                        imageToConvert.UnlockBits(RawBmp);
-                }
-
-                //throw new Exception("Too many grayshades in texture OR invalid size");
-                List<Color> UniqueColors = GetUniqueColors(imageToConvert);
-
+                SetupCoder(imageToConvert);
                 if (IsGrayscale == true)
                 {
                     if (HasAlpha == true)
@@ -241,47 +267,7 @@ namespace N64ImageViewer
                         /* Convert to IA */
                         if (UniqueColors.Count <= 16)
                         {
-#if DEBUG
-                            Console.WriteLine("IA 8-bit <- " + "Image to convert" + ", " + imageToConvert.Width.ToString() + "*" + imageToConvert.Height.ToString() + ", " + UniqueColors.Count.ToString() + " grayshades");
-#endif
-                            /* Set type, IA 8-bit */
-                            Format = GBI.G_IM_FMT_IA;
-                            Size = GBI.G_IM_SIZ_8b;
-                            n64ImageType = N64ImageType.ia8;
-                            /* Generate texture buffer */
-                            Data = new byte[imageToConvert.Width * imageToConvert.Height];
-                            Palette = null;
-
-                            /* Loop through pixels, convert to IA 8-bit, write to texture buffer */
-                            for (int i = 0, j = 0; i < Raw.Length; i += 4, j++)
-                            {
-                                Data[j] = (byte)(((Raw[i] / 16) << 4) | ((Raw[i + 3] / 16) & 0xF));
-                            }
-                        }
-                        else if (UniqueColors.Count <= 256 && imageToConvert.Width * imageToConvert.Height <= 2048)
-                        {
-#if DEBUG
-                            Console.WriteLine("IA 16-bit <- " + "Image to convert" + ", " + imageToConvert.Width.ToString() + "*" + imageToConvert.Height.ToString() + ", " + UniqueColors.Count.ToString() + " grayshades");
-#endif
-                            /* Set type, IA 16-bit */
-                            Format = GBI.G_IM_FMT_IA;
-                            Size = GBI.G_IM_SIZ_16b;
-                            n64ImageType = N64ImageType.notSupported; //NFL Blitz does not make use of IA16 Images
-                            /* Generate texture buffer */
-                            Data = new byte[imageToConvert.Width * imageToConvert.Height * 2];
-                            Palette = null;
-
-                            /* Loop through pixels, convert to IA 16-bit, write to texture buffer */
-                            for (int i = 0, j = 0; i < Raw.Length; i += 4, j += 2)
-                            {
-                                Data[j] = Raw[i + 2];
-                                Data[j + 1] = Raw[i + 3];
-                            }
-                        }
-                        else
-                        {
-                            /* Uh-oh, too many grayshades OR invalid size! */
-                            throw new Exception("Too many grayshades in texture OR invalid size");
+                            ConvertToia8(imageToConvert);
                         }
                     }
                     else
@@ -289,41 +275,11 @@ namespace N64ImageViewer
                         /* Convert to I */
                         if (UniqueColors.Count <= 16)
                         {
-#if DEBUG
-                            Console.WriteLine("I 4-bit <- " + "Image to convert" + ", " + imageToConvert.Width.ToString() + "*" + imageToConvert.Height.ToString() + ", " + UniqueColors.Count.ToString() + " grayshades");
-#endif
-                            /* Set type, I 4-bit */
-                            Format = GBI.G_IM_FMT_I;
-                            Size = GBI.G_IM_SIZ_4b;
-                            n64ImageType = N64ImageType.i4;
-                            /* Generate texture buffer */
-                            Data = new byte[(imageToConvert.Width * imageToConvert.Height) / 2];
-                            Palette = null;
-
-                            /* Loop through pixels, convert to I 4-bit, write to texture buffer */
-                            for (int i = 0, j = 0; i < Raw.Length; i += 8, j++)
-                            {
-                                Data[j] = (byte)(((Raw[i] / 16) << 4) | ((Raw[i + 4] / 16) & 0xF));
-                            }
+                            ConvertToI4(imageToConvert);
                         }
                         else if (UniqueColors.Count <= 256 && imageToConvert.Width * imageToConvert.Height <= 4096)
                         {
-#if DEBUG
-                            Console.WriteLine("I 8-bit <- " + "Image to convert" + ", " + imageToConvert.Width.ToString() + "*" + imageToConvert.Height.ToString() + ", " + UniqueColors.Count.ToString() + " grayshades");
-#endif
-                            /* Set type, I 8-bit */
-                            Format = GBI.G_IM_FMT_I;
-                            Size = GBI.G_IM_SIZ_8b;
-                            n64ImageType = N64ImageType.notSupported; //NFL Blitz does not make use of I8 Images
-                            /* Generate texture buffer */
-                            Data = new byte[imageToConvert.Width * imageToConvert.Height];
-                            Palette = null;
-
-                            /* Loop through pixels, convert to I 8-bit, write to texture buffer */
-                            for (int i = 0, j = 0; i < Raw.Length; i += 4, j++)
-                            {
-                                Data[j] = Raw[i];
-                            }
+                            ConvertToI8(imageToConvert);
                         }
                         else
                         {
@@ -337,79 +293,15 @@ namespace N64ImageViewer
                     /* Convert to CI */
                     if (UniqueColors.Count <= 16)
                     {
-#if DEBUG
-                        Console.WriteLine("CI 4-bit <- " + "Image to convert" + ", " + imageToConvert.Width.ToString() + "*" + imageToConvert.Height.ToString() + ", " + UniqueColors.Count.ToString() + " unique colors");
-#endif
-                        /* Set type, CI 4-bit */
-                        Format = GBI.G_IM_FMT_CI;
-                        Size = GBI.G_IM_SIZ_4b;
-                        n64ImageType = N64ImageType.ci4;
-                        /* Generate texture buffer */
-                        Data = new byte[(imageToConvert.Width * imageToConvert.Height) / 2];
-
-                        /* Generate 16-color RGBA5551 palette */
-                        Palette = GeneratePalette(UniqueColors, 16);
-
-                        /* Loop through pixels, get palette indexes, write to texture buffer */
-                        for (int i = 0, j = 0; i < Raw.Length; i += 8, j++)
-                        {
-                            ushort RGBA5551_1 = ToRGBA5551(Raw[i + 2], Raw[i + 1], Raw[i], Raw[i + 3]);
-                            ushort RGBA5551_2 = ToRGBA5551(Raw[i + 6], Raw[i + 5], Raw[i + 4], Raw[i + 7]);
-                            byte Value = (byte)(
-                                ((GetPaletteIndex(Palette, RGBA5551_1)) << 4) |
-                                ((GetPaletteIndex(Palette, RGBA5551_2) & 0xF)));
-                            Data[j] = Value;
-                        }
+                        ConvertToCi4(imageToConvert);
                     }
                     else if (UniqueColors.Count <= 256)
                     {
-#if DEBUG
-                        Console.WriteLine("CI 8-bit <- " + "Image to convert" + ", " + imageToConvert.Width.ToString() + "*" + imageToConvert.Height.ToString() + ", " + UniqueColors.Count.ToString() + " unique colors");
-#endif
-                        /* Set type, CI 8-bit */
-                        Format = GBI.G_IM_FMT_CI;
-                        Size = GBI.G_IM_SIZ_8b;
-                        n64ImageType = N64ImageType.ci8;
-                        /* Generate texture buffer
-                         * NFL BLitz requires CI8 to be padded to 8 bytes */
-                        int dataSize = (imageToConvert.Width * imageToConvert.Height);
-                        while (dataSize % 8 != 0)
-                        {
-                            dataSize++;
-                        }
-                        Data = new byte[dataSize];
-
-                        /* Generate 256-color RGBA5551 palette */ //setting it to 256 works for editor chaneg back to UniqueColors.Count
-                        Palette = GeneratePalette(UniqueColors, 256);
-
-                        /* Loop through pixels, get palette indexes, write to texture buffer */
-                        for (int i = 0, j = 0; i < Raw.Length; i += 4, j++)
-                        {
-                            ushort RGBA5551 = ToRGBA5551(Raw[i + 2], Raw[i + 1], Raw[i], Raw[i + 3]);
-                            Data[j] = (byte)GetPaletteIndex(Palette, RGBA5551);
-                        }
+                        ConvertToCi8(imageToConvert);
                     }
                     else
                     {
-                        /* Convert to RGBA */
-#if DEBUG
-                        Console.WriteLine("RGBA 16-bit <- " + "Image to convert" + ", " + imageToConvert.Width.ToString() + "*" + imageToConvert.Height.ToString());
-#endif
-                        /* Set type, RGBA 16-bit */
-                        Format = GBI.G_IM_FMT_RGBA;
-                        Size = GBI.G_IM_SIZ_16b;
-                        n64ImageType = N64ImageType.c16;
-                        /* Generate texture buffer */
-                        Data = new byte[imageToConvert.Width * imageToConvert.Height * 2];
-                        Palette = null;
-
-                        /* Loop through pixels, convert to RGBA5551, write to texture buffer */
-                        for (int i = 0, j = 0; i < Raw.Length; i += 4, j += 2)
-                        {
-                            ushort RGBA5551 = ToRGBA5551(Raw[i + 2], Raw[i + 1], Raw[i], Raw[i + 3]);
-                            Data[j] = (byte)(RGBA5551 >> 8);
-                            Data[j + 1] = (byte)(RGBA5551 & 0xFF);
-                        }
+                        ConvertToC16(imageToConvert);
                     }
                 }
             }
@@ -423,5 +315,177 @@ namespace N64ImageViewer
             Type = (byte)((Format << 5) | (Size << 3));
         }
 
+        private void ConvertToc16PlusI4(Bitmap imageToConvert)
+        {
+            //split image in half
+            Bitmap c16, i4;
+            c16 = i4 = new Bitmap(imageToConvert.Width, imageToConvert.Height / 2);
+            Rectangle rect = new Rectangle(0, 0, imageToConvert.Width, imageToConvert.Height / 2);
+            c16 = imageToConvert.Clone(rect, imageToConvert.PixelFormat);
+            rect = new Rectangle(0, imageToConvert.Height / 2, imageToConvert.Width, imageToConvert.Height / 2);
+            i4 = imageToConvert.Clone(rect, imageToConvert.PixelFormat);
+
+            ImageCoder c16ImageCoder = new ImageCoder();
+            c16ImageCoder = new N64ImageViewer.ImageCoder();
+            c16ImageCoder.ConvertToC16(c16);
+            ImageCoder i4ImageCoder = new ImageCoder();
+            i4ImageCoder.ConvertToI4(i4);
+            n64ImageType = N64ImageType.c16PlusI4;
+            List<byte> tempData = new List<byte>();
+            tempData.AddRange(c16ImageCoder.Data);
+            tempData.AddRange(i4ImageCoder.Data);
+            Data = tempData.ToArray();
+            Width = imageToConvert.Width;
+            // Height is used for both the C16 and I4 so we need to split it in half, since each image makes up half
+            Height = imageToConvert.Height / 2;
+            HasAlpha = c16ImageCoder.HasAlpha;
+            return;
+        }
+
+
+        private void ConvertToC16(Bitmap imageToConvert)
+        {
+            SetupCoder(imageToConvert);
+            /* Set type, RGBA 16-bit */
+            Format = GBI.G_IM_FMT_RGBA;
+            Size = GBI.G_IM_SIZ_16b;
+            n64ImageType = N64ImageType.c16;
+            /* Generate texture buffer */
+            Data = new byte[imageToConvert.Width * imageToConvert.Height * 2];
+            Palette = null;
+
+            /* Loop through pixels, convert to RGBA5551, write to texture buffer */
+            for (int i = 0, j = 0; i < Raw.Length; i += 4, j += 2)
+            {
+                ushort RGBA5551 = ToRGBA5551(Raw[i + 2], Raw[i + 1], Raw[i], Raw[i + 3]);
+                Data[j] = (byte)(RGBA5551 >> 8);
+                Data[j + 1] = (byte)(RGBA5551 & 0xFF);
+            }
+        }
+
+        private void ConvertToCi8(Bitmap imageToConvert)
+        {
+            if (UniqueColors.Count > 256)
+            {
+                WuQuantizer quantizer = new WuQuantizer();
+                imageToConvert = new Bitmap(quantizer.QuantizeImage(imageToConvert, 0, 0, new Histogram(), 256));
+                SetupCoder(imageToConvert);
+            }
+
+            /* Set type, CI 8-bit */
+            Format = GBI.G_IM_FMT_CI;
+            Size = GBI.G_IM_SIZ_8b;
+            n64ImageType = N64ImageType.ci8;
+            /* Generate texture buffer
+             * NFL BLitz requires CI8 to be padded to 8 bytes */
+            int dataSize = (imageToConvert.Width * imageToConvert.Height);
+            while (dataSize % 8 != 0)
+            {
+                dataSize++;
+            }
+            Data = new byte[dataSize];
+
+            /* Generate 256-color RGBA5551 palette */
+            Palette = GeneratePalette(UniqueColors, 256);
+
+            /* Loop through pixels, get palette indexes, write to texture buffer */
+            for (int i = 0, j = 0; i < Raw.Length; i += 4, j++)
+            {
+                ushort RGBA5551 = ToRGBA5551(Raw[i + 2], Raw[i + 1], Raw[i], Raw[i + 3]);
+                Data[j] = (byte)GetPaletteIndex(Palette, RGBA5551);
+            }
+        }
+
+
+        private void ConvertToCi4(Bitmap imageToConvert)
+        {
+            /* Convert to CI */
+            if (UniqueColors.Count > 16)
+            {
+                WuQuantizer quantizer = new WuQuantizer();
+                imageToConvert = new Bitmap(quantizer.QuantizeImage(imageToConvert, 0, 0, new Histogram(), 16));
+                SetupCoder(imageToConvert);
+            }
+            /* Set type, CI 4-bit */
+            Format = GBI.G_IM_FMT_CI;
+            Size = GBI.G_IM_SIZ_4b;
+            n64ImageType = N64ImageType.ci4;
+            /* Generate texture buffer */
+            Data = new byte[(imageToConvert.Width * imageToConvert.Height) / 2];
+
+            /* Generate 16-color RGBA5551 palette */
+            Palette = GeneratePalette(UniqueColors, 16);
+
+            /* Loop through pixels, get palette indexes, write to texture buffer */
+            for (int i = 0, j = 0; i < Raw.Length; i += 8, j++)
+            {
+                ushort RGBA5551_1 = ToRGBA5551(Raw[i + 2], Raw[i + 1], Raw[i], Raw[i + 3]);
+                ushort RGBA5551_2 = ToRGBA5551(Raw[i + 6], Raw[i + 5], Raw[i + 4], Raw[i + 7]);
+                byte Value = (byte)(
+                    ((GetPaletteIndex(Palette, RGBA5551_1)) << 4) |
+                    ((GetPaletteIndex(Palette, RGBA5551_2) & 0xF)));
+                Data[j] = Value;
+            }
+        }
+
+        private void ConvertToI8(Bitmap imageToConvert)
+        {
+            /* Set type, I 8-bit */
+            Format = GBI.G_IM_FMT_I;
+            Size = GBI.G_IM_SIZ_8b;
+            n64ImageType = N64ImageType.notSupported; //NFL Blitz does not make use of I8 Images
+                                                      /* Generate texture buffer */
+            Data = new byte[imageToConvert.Width * imageToConvert.Height];
+            Palette = null;
+
+            /* Loop through pixels, convert to I 8-bit, write to texture buffer */
+            for (int i = 0, j = 0; i < Raw.Length; i += 4, j++)
+            {
+                Data[j] = Raw[i];
+            }
+        }
+
+        private void ConvertToI4(Bitmap imageToConvert)
+        {
+            SetupCoder(imageToConvert);
+            /* We will need to add a grayscale check in the future also */
+            if (UniqueColors.Count > 16)
+            {
+                WuQuantizer quantizer = new WuQuantizer();
+                imageToConvert = new Bitmap(quantizer.QuantizeImage(imageToConvert, 0, 0, new Histogram(), 16));
+                SetupCoder(imageToConvert);
+            }
+
+            /* Set type, I 4-bit */
+            Format = GBI.G_IM_FMT_I;
+            Size = GBI.G_IM_SIZ_4b;
+            n64ImageType = N64ImageType.i4;
+            /* Generate texture buffer */
+            Data = new byte[(imageToConvert.Width * imageToConvert.Height) / 2];
+            Palette = null;
+
+            /* Loop through pixels, convert to I 4-bit, write to texture buffer */
+            for (int i = 0, j = 0; i < Raw.Length; i += 8, j++)
+            {
+                Data[j] = (byte)(((Raw[i] / 16) << 4) | ((Raw[i + 4] / 16) & 0xF));
+            }
+        }
+
+        private void ConvertToia8(Bitmap imageToConvert)
+        {
+            /* Set type, IA 8-bit */
+            Format = GBI.G_IM_FMT_IA;
+            Size = GBI.G_IM_SIZ_8b;
+            n64ImageType = N64ImageType.ia8;
+            /* Generate texture buffer */
+            Data = new byte[imageToConvert.Width * imageToConvert.Height];
+            Palette = null;
+
+            /* Loop through pixels, convert to IA 8-bit, write to texture buffer */
+            for (int i = 0, j = 0; i < Raw.Length; i += 4, j++)
+            {
+                Data[j] = (byte)(((Raw[i] / 16) << 4) | ((Raw[i + 3] / 16) & 0xF));
+            }
+        }
     }
 }

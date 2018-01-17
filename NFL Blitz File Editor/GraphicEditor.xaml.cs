@@ -498,7 +498,7 @@ FileAccess.ReadWrite))
             {
                 previewImage.Source = null;
             }
-            tbImageType.Text = graphic.ImageType;
+            cbImageType.SelectedValue = (N64ImageType)Enum.Parse(typeof(N64ImageType),graphic.ImageType);
             tbIRX.Text = graphic.IRX.ToString();
             tbIRY.Text = graphic.IRY.ToString();
         }
@@ -556,5 +556,30 @@ FileAccess.ReadWrite))
             }
         }
 
+        private void Window_Initialized(object sender, EventArgs e)
+        {
+            cbImageType.ItemsSource = Enum.GetValues(typeof(N64ImageType)).Cast<N64ImageType>();
+        }
+
+        /// <summary>
+        /// When a user chnages the selected n64 graphics type, we convert it to that type. 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void cbImageType_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (lbGameFiles.SelectedValue == null)
+                return;
+            BlitzGraphic currentGraphic = GetBlitzGraphic((BlitzGameFile)lbGameFiles.SelectedItem);
+            if (cbImageType.IsDropDownOpen && (N64ImageType)Enum.Parse(typeof(N64ImageType), currentGraphic.ImageType) != (N64ImageType)cbImageType.SelectedValue)
+            {
+                ImageCoder imageCoder = new ImageCoder();
+                imageCoder.ConvertTo(currentGraphic.BlitzImage, (N64ImageType)cbImageType.SelectedValue);
+                List<byte> convertedImage = new List<byte>();
+                convertedImage.AddRange(Blitz2000Header.CreateNFLBlitz2000Header(imageCoder.Width, imageCoder.Height, imageCoder.HasAlpha, (byte)imageCoder.n64ImageType, currentGraphic.IRX, currentGraphic.IRY));
+                convertedImage.AddRange(imageCoder.Data);
+                InsertReplacementFile(convertedImage.ToArray());
+            }
+        }
     }
 }
